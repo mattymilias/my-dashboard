@@ -9,7 +9,8 @@
 //   GARMIN_EMAIL
 //   GARMIN_PASSWORD
 
-import { GarminConnect } from 'garmin-connect';
+import pkg from 'garmin-connect';
+const { GarminConnect } = pkg;
 import { getStore } from '@netlify/blobs';
 
 export const config = {
