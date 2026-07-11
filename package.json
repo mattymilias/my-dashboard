@@ -1,9 +1,10 @@
 {
-  "name": "my-dashboard",
+  "name": "matty-dashboard",
   "version": "1.0.0",
-  "type": "module",
   "dependencies": {
-    "garmin-connect": "^1.6.2",
-    "@netlify/blobs": "^8.1.0"
+    "garmin-connect": "^1.6.2"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
   }
 }
