@@ -1,9 +1,6 @@
 {
   "name": "matty-dashboard",
   "version": "1.0.0",
-  "dependencies": {
-    "garmin-connect": "^1.6.2"
-  },
   "devDependencies": {
     "wrangler": "^4.0.0"
   }
