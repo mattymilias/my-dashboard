@@ -16,5 +16,8 @@
       "binding": "GARMIN_KV",
       "id": "e1c7b9f212c44b2d95accc79df8f397c"
     }
-  ]
+  ],
+  "vars": {
+    "GARMIN_EMAIL": "matty.milias@icloud.com",
+  }
 }
