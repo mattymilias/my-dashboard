@@ -2342,12 +2342,20 @@ body::after {
 
   <div class="tab-panel" id="tab-training">
     <div class="section">
-      <div class="section-title">Training</div>
-      <div class="health-card">
-        <div class="health-stat-meta" style="text-align:left;">
-          Training calendar and session tracking is coming soon — this tab will bring together your sessions, recovery days, and competitions alongside your school schedule.
-        </div>
+      <div class="section-title">Recovery Status</div>
+      <div class="health-card" id="recoveryStatusCard">
+        <div class="health-stat-meta" id="recoveryStatusText">Loading…</div>
       </div>
+    </div>
+    <div class="section">
+      <div class="section-title">Today</div>
+      <div class="ai-card" id="trainingTodayCard">
+        <div class="ai-card-body" id="trainingTodayBody">Nothing scheduled today.</div>
+      </div>
+    </div>
+    <div class="section">
+      <div class="section-title">Upcoming</div>
+      <div class="cal-agenda-view" id="trainingUpcomingList"></div>
     </div>
   </div><!-- /tab-training -->
 
@@ -2711,7 +2719,7 @@ function storeGet(key) {
   try { return JSON.parse(localStorage.getItem(key)); } catch (e) { return null; }
 }
 const SYNC_URL = (typeof location !== 'undefined' && (location.protocol === 'http:' || location.protocol === 'https:'))
-  ? '/.netlify/functions/store'
+  ? '/store'
   : null;
 const SYNC_PREFIXES = ['goals:', 'goal_streak_v1', 'weight:', 'photos'];
 let pendingRemote = null;
@@ -4133,6 +4141,7 @@ async function loadHealthOverview() {
     batteryEl.className = 'health-stat-value ' + ratingClass(battery, { good: (v) => v >= 70, warn: (v) => v >= 40 });
 
     meta.textContent = `Last synced ${new Date(data.latest.fetchedAt).toLocaleString()}`;
+    try { renderRecoveryStatus(); } catch (e) {}
   } catch (error) {
     meta.textContent = 'Could not load Garmin data.';
   }
@@ -4176,6 +4185,101 @@ function localStorageSafeGet(key) {
 try { loadHealthOverview(); } catch (e) { console.error('loadHealthOverview failed:', e); }
 try { setupTabs(); } catch (e) { console.error('setupTabs failed:', e); }
 try { setupCalendar(); } catch (e) { console.error('setupCalendar failed:', e); }
+try { renderTrainingTab(); } catch (e) { console.error('renderTrainingTab failed:', e); }
+
+// ---------- Training tab ----------
+function renderTrainingTab() {
+  renderRecoveryStatus();
+  renderTrainingToday();
+  renderTrainingUpcoming();
+}
+
+function renderRecoveryStatus() {
+  const el = document.getElementById('recoveryStatusText');
+  const snap = latestGarminSnapshot;
+  if (!snap) {
+    el.textContent = 'No Garmin data yet — check back once your Health Overview has synced.';
+    return;
+  }
+  const u = snap.userSummary || {};
+  const s = snap.sleep || {};
+  const rhr = u.restingHeartRate ?? null;
+  const hrv = s.avgOvernightHrv ?? null;
+  const sleepScore = s.dailySleepDTO?.sleepScores?.overall?.value ?? null;
+  const battery = u.bodyBatteryMostRecentValue ?? null;
+
+  let score = 0;
+  let signals = 0;
+  if (rhr != null) { signals += 1; if (rhr <= 55) score += 1; }
+  if (hrv != null) { signals += 1; if (hrv >= 50) score += 1; }
+  if (sleepScore != null) { signals += 1; if (sleepScore >= 70) score += 1; }
+  if (battery != null) { signals += 1; if (battery >= 60) score += 1; }
+
+  if (signals === 0) {
+    el.textContent = 'Not enough data yet to assess recovery.';
+    return;
+  }
+
+  const ratio = score / signals;
+  let verdict;
+  if (ratio >= 0.75) verdict = 'Looking well recovered — good day for a harder session.';
+  else if (ratio >= 0.4) verdict = 'Mixed signals — moderate session, listen to how you feel.';
+  else verdict = 'Recovery markers are low — consider an easier day or extra rest.';
+
+  el.innerHTML = `
+    <strong style="color:var(--text-primary);">${verdict}</strong><br/>
+    <span style="font-size:12px;">RHR ${rhr ?? '—'} · HRV ${hrv ?? '—'} · Sleep ${sleepScore ?? '—'} · Battery ${battery ?? '—'}</span>
+  `;
+}
+
+function renderTrainingToday() {
+  const body = document.getElementById('trainingTodayBody');
+  const events = loadCalEvents();
+  const today = new Date().toISOString().slice(0, 10);
+  const todays = events.filter((e) => e.date === today && ['training', 'recovery', 'competition'].includes(e.type));
+
+  if (!todays.length) {
+    body.textContent = 'Nothing scheduled today. Add a session from the Calendar tab.';
+    return;
+  }
+  body.innerHTML = todays
+    .map((e) => `<div style="margin-bottom:6px;"><span class="cal-dot cal-dot-${e.type}"></span> <strong>${e.title}</strong>${e.notes ? ` — ${e.notes}` : ''}</div>`)
+    .join('');
+}
+
+function renderTrainingUpcoming() {
+  const container = document.getElementById('trainingUpcomingList');
+  const events = loadCalEvents()
+    .filter((e) => ['training', 'recovery', 'competition'].includes(e.type) && e.date >= new Date().toISOString().slice(0, 10))
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .slice(0, 10);
+
+  if (!events.length) {
+    container.innerHTML = '<div class="cal-agenda-empty">No upcoming sessions or competitions planned.</div>';
+    return;
+  }
+
+  let lastDate = null;
+  container.innerHTML = '';
+  events.forEach((e) => {
+    if (e.date !== lastDate) {
+      const heading = document.createElement('div');
+      heading.className = 'cal-agenda-day';
+      heading.textContent = new Date(e.date + 'T00:00:00').toLocaleDateString(undefined, {
+        weekday: 'long',
+        month: 'short',
+        day: 'numeric',
+      });
+      container.appendChild(heading);
+      lastDate = e.date;
+    }
+    const item = document.createElement('div');
+    item.className = 'cal-agenda-item';
+    item.innerHTML = `<span class="cal-dot cal-dot-${e.type}"></span><div class="cal-agenda-title">${e.title}</div>`;
+    container.appendChild(item);
+  });
+}
+
 
 // ---------- Calendar ----------
 function loadCalEvents() {
