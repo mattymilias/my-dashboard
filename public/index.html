@@ -3829,7 +3829,7 @@ async function init() {
     loadAndRender();
   });
 }
-init();
+try { init(); } catch (e) { console.error('init failed:', e); }
 
 const macroGoals = JSON.parse(localStorage.getItem('macroGoals')) || {
   protein: 180,
@@ -4085,7 +4085,7 @@ function renderNutritionTrend(metric) {
   });
 }
 
-initMacros();
+try { initMacros(); } catch (e) { console.error('initMacros failed:', e); }
 
 // ---------- Health Overview (Garmin) ----------
 let latestGarminSnapshot = null;
@@ -4173,9 +4173,9 @@ function localStorageSafeGet(key) {
   return null;
 }
 
-loadHealthOverview();
-setupTabs();
-setupCalendar();
+try { loadHealthOverview(); } catch (e) { console.error('loadHealthOverview failed:', e); }
+try { setupTabs(); } catch (e) { console.error('setupTabs failed:', e); }
+try { setupCalendar(); } catch (e) { console.error('setupCalendar failed:', e); }
 
 // ---------- Calendar ----------
 function loadCalEvents() {
