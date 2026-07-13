@@ -1790,10 +1790,56 @@ body::after {
 @media (max-width: 520px) {
   .health-stats-grid { grid-template-columns: repeat(2, 1fr); }
 }
+
+.tab-nav {
+  display: flex;
+  gap: 6px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 14px;
+  padding: 5px;
+  margin-bottom: 20px;
+  overflow-x: auto;
+}
+.tab-nav-btn {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: var(--text-tertiary);
+  font-size: 13px;
+  font-weight: 700;
+  padding: 10px 12px;
+  border-radius: 10px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+.tab-nav-btn:hover {
+  color: var(--text-secondary);
+}
+.tab-nav-btn.is-active {
+  background: var(--text-primary);
+  color: #050506;
+}
+.tab-panel {
+  display: none;
+}
+.tab-panel.is-active {
+  display: block;
+}
 </style>
 </head>
 <main class="page-shell">
   <h1 class="dash-title">My Dashboard</h1>
+
+  <nav class="tab-nav" id="tabNav">
+    <button class="tab-nav-btn is-active" data-tab="today">Today</button>
+    <button class="tab-nav-btn" data-tab="training">Training</button>
+    <button class="tab-nav-btn" data-tab="nutrition">Nutrition</button>
+    <button class="tab-nav-btn" data-tab="calendar">Calendar</button>
+  </nav>
+
+  <div class="tab-panel is-active" id="tab-today">
   <div class="ticker-row">
     <div class="goal-ticker" id="goalTicker" aria-live="polite" aria-atomic="true">
       <div class="goal-ticker-led"><span class="goal-ticker-led-dot"></span></div>
@@ -1942,7 +1988,20 @@ body::after {
       </button>
     </div>
   </div>
-</div>
+  </div><!-- /tab-today -->
+
+  <div class="tab-panel" id="tab-training">
+    <div class="section">
+      <div class="section-title">Training</div>
+      <div class="health-card">
+        <div class="health-stat-meta" style="text-align:left;">
+          Training calendar and session tracking is coming soon — this tab will bring together your sessions, recovery days, and competitions alongside your school schedule.
+        </div>
+      </div>
+    </div>
+  </div><!-- /tab-training -->
+
+  <div class="tab-panel" id="tab-nutrition">
 <div class="section">
   <div class="section-title">Nutrition</div>
 
@@ -2061,6 +2120,19 @@ body::after {
 
   </div>
 </div>
+  </div><!-- /tab-nutrition -->
+
+  <div class="tab-panel" id="tab-calendar">
+    <div class="section">
+      <div class="section-title">Calendar</div>
+      <div class="health-card">
+        <div class="health-stat-meta" style="text-align:left;">
+          Coming soon — training sessions and school assessments/deadlines together in one place.
+        </div>
+      </div>
+    </div>
+  </div><!-- /tab-calendar -->
+
 <div class="progress-overlay" id="progressOverlay" aria-hidden="true">
     <div class="progress-inner">
       <div class="progress-header">
@@ -3566,7 +3638,40 @@ async function loadHealthOverview() {
 // AI Insights, Trends, Recommendations, and Chat come later — removed for now
 // so we can focus on getting Garmin data flowing cleanly first.
 
+// ---------- Tab navigation ----------
+function setupTabs() {
+  const buttons = document.querySelectorAll('.tab-nav-btn');
+  const panels = document.querySelectorAll('.tab-panel');
+  buttons.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const target = btn.getAttribute('data-tab');
+      buttons.forEach((b) => b.classList.toggle('is-active', b === btn));
+      panels.forEach((p) => p.classList.toggle('is-active', p.id === `tab-${target}`));
+      // Remember last active tab across reloads.
+      try { localStorageSafeSet('activeTab', target); } catch (e) {}
+    });
+  });
+
+  // Restore last active tab, if any.
+  let saved = null;
+  try { saved = localStorageSafeGet('activeTab'); } catch (e) {}
+  if (saved) {
+    const btn = document.querySelector(`.tab-nav-btn[data-tab="${saved}"]`);
+    if (btn) btn.click();
+  }
+}
+// Small guarded wrappers since this file avoids relying on localStorage elsewhere;
+// falls back to no-op if unavailable so this never breaks the page.
+function localStorageSafeSet(key, value) {
+  if (typeof window !== 'undefined' && window.localStorage) window.localStorage.setItem(key, value);
+}
+function localStorageSafeGet(key) {
+  if (typeof window !== 'undefined' && window.localStorage) return window.localStorage.getItem(key);
+  return null;
+}
+
 loadHealthOverview();
+setupTabs();
 </script>
 </body>
 </html>
