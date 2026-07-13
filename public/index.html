@@ -3538,7 +3538,7 @@ async function loadHealthOverview() {
 
     const rhr = u.restingHeartRate ?? null;
     const hrvVal = s.avgOvernightHrv ?? null;
-    const sleepScore = s.sleepScores?.overall?.value ?? null;
+    const sleepScore = s.dailySleepDTO?.sleepScores?.overall?.value ?? null;
     const battery = u.bodyBatteryMostRecentValue ?? null;
 
     const rhrEl = document.getElementById('healthRHR');
