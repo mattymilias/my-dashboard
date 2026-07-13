@@ -3535,10 +3535,9 @@ async function loadHealthOverview() {
     latestGarminSnapshot = data.latest;
     const u = data.latest.userSummary || {};
     const s = data.latest.sleep || {};
-    const hrv = data.latest.hrv || {};
 
     const rhr = u.restingHeartRate ?? null;
-    const hrvVal = hrv.hrvSummary?.lastNightAvg ?? null;
+    const hrvVal = s.avgOvernightHrv ?? null;
     const sleepScore = s.sleepScores?.overall?.value ?? null;
     const battery = u.bodyBatteryMostRecentValue ?? null;
 
