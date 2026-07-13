@@ -1827,6 +1827,91 @@ body::after {
 .tab-panel.is-active {
   display: block;
 }
+
+.macro-meal-category {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  margin: 14px 0 6px;
+}
+.macro-meal-category:first-child {
+  margin-top: 0;
+}
+.macro-category-select {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 10px;
+  color: var(--text-primary);
+  padding: 10px 12px;
+  font-size: 13px;
+}
+
+.nutrition-trends {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(255,255,255,0.06);
+}
+.nutrition-trends-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+.nutrition-trends-toggle {
+  display: flex;
+  gap: 6px;
+}
+.trend-toggle-btn {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 5px 10px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+.trend-toggle-btn.is-active {
+  background: var(--text-primary);
+  color: #050506;
+  border-color: var(--text-primary);
+}
+.nutrition-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  height: 120px;
+  padding: 0 4px;
+}
+.nutrition-chart-bar-wrap {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  height: 100%;
+  justify-content: flex-end;
+}
+.nutrition-chart-bar {
+  width: 100%;
+  max-width: 28px;
+  background: linear-gradient(180deg, rgba(224,118,88,0.9), rgba(224,118,88,0.5));
+  border-radius: 6px 6px 3px 3px;
+  min-height: 3px;
+  transition: height 0.3s ease;
+}
+.nutrition-chart-label {
+  font-size: 9px;
+  color: var(--text-tertiary);
+  letter-spacing: 0.05em;
+}
+.nutrition-chart-empty {
+  color: var(--text-tertiary);
+  font-size: 13px;
+  margin: auto;
+}
 </style>
 </head>
 <main class="page-shell">
@@ -2103,6 +2188,12 @@ body::after {
 
     <div class="macro-add-wrap">
       <input id="foodName" class="macro-input macro-food-input" type="text" placeholder="Meal or food" />
+      <select id="mealCategoryInput" class="macro-input macro-category-select">
+        <option value="Breakfast">Breakfast</option>
+        <option value="Lunch">Lunch</option>
+        <option value="Dinner">Dinner</option>
+        <option value="Snack">Snack</option>
+      </select>
 
       <div class="macro-input-grid">
         <input id="proteinInput" class="macro-input" type="number" placeholder="P" />
@@ -2117,6 +2208,17 @@ body::after {
     </div>
 
     <div id="mealList" class="macro-meal-list"></div>
+
+    <div class="nutrition-trends">
+      <div class="nutrition-trends-header">
+        <div class="section-title" style="margin:0;">7-Day Trend</div>
+        <div class="nutrition-trends-toggle">
+          <button class="trend-toggle-btn is-active" data-metric="calories" type="button">Calories</button>
+          <button class="trend-toggle-btn" data-metric="protein" type="button">Protein</button>
+        </div>
+      </div>
+      <div class="nutrition-chart" id="nutritionChart"></div>
+    </div>
 
   </div>
 </div>
@@ -3423,7 +3525,12 @@ const macroGoals = JSON.parse(localStorage.getItem('macroGoals')) || {
   calories: 3200
 };
 
-let meals = JSON.parse(localStorage.getItem('meals')) || [];
+function nutritionTodayKey() {
+  const d = new Date();
+  return `meals:${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+let meals = JSON.parse(localStorage.getItem(nutritionTodayKey())) || [];
 
 const proteinCurrent = document.getElementById('proteinCurrent');
 const carbsCurrent = document.getElementById('carbsCurrent');
@@ -3451,13 +3558,36 @@ const mealList = document.getElementById('mealList');
 
 const addMealBtn = document.getElementById('addMealBtn');
 const foodName = document.getElementById('foodName');
+const mealCategoryInput = document.getElementById('mealCategoryInput');
 const proteinInput = document.getElementById('proteinInput');
 const carbsInput = document.getElementById('carbsInput');
 const fatsInput = document.getElementById('fatsInput');
 const caloriesInput = document.getElementById('caloriesInput');
 
 function saveMeals() {
-  localStorage.setItem('meals', JSON.stringify(meals));
+  localStorage.setItem(nutritionTodayKey(), JSON.stringify(meals));
+  saveNutritionHistorySnapshot();
+}
+
+function saveNutritionHistorySnapshot() {
+  const totals = meals.reduce(
+    (acc, m) => ({
+      protein: acc.protein + (m.protein || 0),
+      carbs: acc.carbs + (m.carbs || 0),
+      fats: acc.fats + (m.fats || 0),
+      calories: acc.calories + (m.calories || 0),
+    }),
+    { protein: 0, carbs: 0, fats: 0, calories: 0 }
+  );
+  const history = JSON.parse(localStorage.getItem('nutritionHistory')) || {};
+  const dateKey = nutritionTodayKey().replace('meals:', '');
+  history[dateKey] = totals;
+  // Keep only the last 30 days to avoid unbounded growth.
+  const keys = Object.keys(history).sort();
+  if (keys.length > 30) {
+    keys.slice(0, keys.length - 30).forEach((k) => delete history[k]);
+  }
+  localStorage.setItem('nutritionHistory', JSON.stringify(history));
 }
 
 function saveMacroGoals() {
@@ -3496,25 +3626,41 @@ function calculateTotals() {
 function renderMeals() {
   mealList.innerHTML = '';
 
+  const categoryOrder = ['Breakfast', 'Lunch', 'Dinner', 'Snack', 'Meal'];
+  const grouped = {};
   meals.forEach((meal, index) => {
-    const item = document.createElement('div');
-    item.className = 'macro-meal-item';
+    const cat = meal.category || 'Meal';
+    if (!grouped[cat]) grouped[cat] = [];
+    grouped[cat].push({ ...meal, index });
+  });
 
-    item.innerHTML = `
-      <div>
-        <div class="macro-meal-name">${meal.name}</div>
+  categoryOrder.forEach((cat) => {
+    if (!grouped[cat] || !grouped[cat].length) return;
+    const heading = document.createElement('div');
+    heading.className = 'macro-meal-category';
+    heading.textContent = cat;
+    mealList.appendChild(heading);
 
-        <div class="macro-meal-data">
-          P ${meal.protein}G • C ${meal.carbs}G • F ${meal.fats}G • ${meal.calories} CAL
+    grouped[cat].forEach(({ name, protein, carbs, fats, calories, index }) => {
+      const item = document.createElement('div');
+      item.className = 'macro-meal-item';
+
+      item.innerHTML = `
+        <div>
+          <div class="macro-meal-name">${name}</div>
+
+          <div class="macro-meal-data">
+            P ${protein}G • C ${carbs}G • F ${fats}G • ${calories} CAL
+          </div>
         </div>
-      </div>
 
-      <button class="macro-delete-btn" onclick="deleteMeal(${index})">
-        ✕
-      </button>
-    `;
+        <button class="macro-delete-btn" onclick="deleteMeal(${index})">
+          ✕
+        </button>
+      `;
 
-    mealList.appendChild(item);
+      mealList.appendChild(item);
+    });
   });
 
   calculateTotals();
@@ -3526,10 +3672,11 @@ function addMeal() {
   const carbs = Number(carbsInput.value) || 0;
   const fats = Number(fatsInput.value) || 0;
   const calories = Number(caloriesInput.value) || 0;
+  const category = mealCategoryInput ? mealCategoryInput.value : 'Meal';
 
   if (!name) return;
 
-  meals.push({ name, protein, carbs, fats, calories });
+  meals.push({ name, protein, carbs, fats, calories, category, loggedAt: new Date().toISOString() });
   saveMeals();
   calculateTotals();
   renderMeals();
@@ -3550,7 +3697,15 @@ function deleteMeal(index) {
 function initMacros() {
   calculateTotals();
   renderMeals();
+  renderNutritionTrend('calories');
   addMealBtn.addEventListener('click', addMeal);
+
+  document.querySelectorAll('.trend-toggle-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.trend-toggle-btn').forEach((b) => b.classList.toggle('is-active', b === btn));
+      renderNutritionTrend(btn.getAttribute('data-metric'));
+    });
+  });
 
   macroSettingsBtn.addEventListener('click', () => {
     macroGoalsEditor.classList.remove('hidden');
@@ -3579,6 +3734,41 @@ function initMacros() {
   cancelMacroGoalsBtn.addEventListener('click', () => {
     macroGoalsEditor.classList.add('hidden');
     macroSettingsBtn.disabled = false;
+  });
+}
+
+function renderNutritionTrend(metric) {
+  const chart = document.getElementById('nutritionChart');
+  if (!chart) return;
+  const history = JSON.parse(localStorage.getItem('nutritionHistory')) || {};
+
+  // Build the last 7 calendar days, oldest first, filling in zero for days with no data.
+  const days = [];
+  for (let i = 6; i >= 0; i -= 1) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    days.push({ key, label: d.toLocaleDateString(undefined, { weekday: 'short' })[0], value: history[key]?.[metric] || 0 });
+  }
+
+  const max = Math.max(...days.map((d) => d.value), 1);
+  chart.innerHTML = '';
+
+  const hasAnyData = days.some((d) => d.value > 0);
+  if (!hasAnyData) {
+    chart.innerHTML = '<div class="nutrition-chart-empty">Log meals to start building your trend.</div>';
+    return;
+  }
+
+  days.forEach((d) => {
+    const wrap = document.createElement('div');
+    wrap.className = 'nutrition-chart-bar-wrap';
+    const heightPct = Math.max((d.value / max) * 100, d.value > 0 ? 4 : 0);
+    wrap.innerHTML = `
+      <div class="nutrition-chart-bar" style="height:${heightPct}%" title="${d.value} ${metric}"></div>
+      <div class="nutrition-chart-label">${d.label}</div>
+    `;
+    chart.appendChild(wrap);
   });
 }
 
